@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	errMissingHost           = errors.New("Error: missing server host")
-	errMissingPasswordOrKey  = errors.New("Error: can't connect without a private SSH key or password")
-	errSetPasswordandKey     = errors.New("can't set password and key at the same time")
+	errMissingHost           = errors.New("error: missing server host")
+	errMissingPasswordOrKey  = errors.New("error: can't connect without a private SSH key or password")
+	errSetPasswordAndKey     = errors.New("can't set password and key at the same time")
 	errMissingSourceOrTarget = errors.New("missing source or target config")
+	errorNoSource            = errors.New("can't find source files or directory")
 )
 
 type (
@@ -128,14 +129,14 @@ func globList(paths []string) fileList {
 }
 
 func buildArgs(tar string, files fileList) []string {
-	args := []string{}
+	var args []string
 	if len(files.Ignore) > 0 {
 		for _, v := range files.Ignore {
 			args = append(args, "--exclude")
 			args = append(args, v)
 		}
 	}
-	args = append(args, "-cf")
+	args = append(args, "-zvcf")
 	args = append(args, getRealPath(tar))
 	args = append(args, files.Source...)
 
@@ -209,11 +210,18 @@ type fileList struct {
 }
 
 func (p *Plugin) buildArgs(target string) []string {
-	args := []string{}
+	var args []string
+
+	var options string
+	if p.Config.Debug {
+		options = "-zvxf"
+	} else {
+		options = "-zxf"
+	}
 
 	args = append(args,
 		p.Config.TarExec,
-		"-xf",
+		options,
 		p.DestFile,
 	)
 
@@ -249,7 +257,7 @@ func (p *Plugin) Exec() error {
 	}
 
 	if len(p.Config.Key) != 0 && len(p.Config.Password) != 0 {
-		return errSetPasswordandKey
+		return errSetPasswordAndKey
 	}
 
 	if len(p.Config.Source) == 0 || len(p.Config.Target) == 0 {
@@ -257,7 +265,11 @@ func (p *Plugin) Exec() error {
 	}
 
 	files := globList(trimPath(p.Config.Source))
-	p.DestFile = fmt.Sprintf("%s.tar", random.String(10))
+	if len(files.Source) == 0 {
+		return errorNoSource
+	}
+
+	p.DestFile = fmt.Sprintf("%s.tar.gz", random.String(10))
 
 	// create a temporary file for the archive
 	dir := os.TempDir()
@@ -347,11 +359,11 @@ func (p *Plugin) Exec() error {
 
 				// untar file
 				p.log(host, "untar file", p.DestFile)
-				commamd := strings.Join(p.buildArgs(target), " ")
+				command := strings.Join(p.buildArgs(target), " ")
 				if p.Config.Debug {
-					fmt.Println("$", commamd)
+					fmt.Println("$", command)
 				}
-				outStr, errStr, _, err := ssh.Run(commamd, p.Config.CommandTimeout)
+				outStr, errStr, _, err := ssh.Run(command, p.Config.CommandTimeout)
 
 				if outStr != "" {
 					p.log(host, "output: ", outStr)
@@ -388,7 +400,10 @@ func (p *Plugin) Exec() error {
 	case err := <-errChannel:
 		if err != nil {
 			c := color.New(color.FgRed)
-			c.Println("drone-scp error: ", err)
+			_, theErr := c.Println("drone-scp error: ", err)
+			if theErr != nil {
+				return err
+			}
 			if _, ok := err.(copyError); !ok {
 				fmt.Println("drone-scp rollback: remove all target tmp file")
 				if err := p.removeAllDestFile(); err != nil {

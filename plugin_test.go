@@ -65,7 +65,7 @@ func TestSetPasswordAndKey(t *testing.T) {
 	err := plugin.Exec()
 
 	assert.NotNil(t, err)
-	assert.Equal(t, errSetPasswordandKey, err)
+	assert.Equal(t, errSetPasswordAndKey, err)
 }
 
 func TestTrimElement(t *testing.T) {

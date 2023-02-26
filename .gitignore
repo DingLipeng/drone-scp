@@ -28,3 +28,5 @@ coverage.txt
 dist
 .cover
 release
+.idea
+.git
