@@ -106,21 +106,16 @@ func globList(paths []string) fileList {
 	var list fileList
 
 	for _, pattern := range paths {
-		ignore := false
 		pattern = strings.Trim(pattern, " ")
-		if string(pattern[0]) == "!" {
+		if string(pattern[0]) == "?" {
 			pattern = pattern[1:]
-			ignore = true
-		}
-		matches, err := filepath.Glob(pattern)
-		if err != nil {
-			fmt.Printf("Glob error for %q: %s\n", pattern, err)
-			continue
-		}
-
-		if ignore {
-			list.Ignore = append(list.Ignore, matches...)
+			list.Ignore = append(list.Ignore, pattern)
 		} else {
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				fmt.Printf("Glob error for %q: %s\n", pattern, err)
+				continue
+			}
 			list.Source = append(list.Source, matches...)
 		}
 	}
@@ -264,6 +259,11 @@ func (p *Plugin) Exec() error {
 		return errMissingSourceOrTarget
 	}
 
+	if p.Config.Debug {
+		fmt.Println("the source is:")
+		fmt.Println(p.Config.Source)
+	}
+
 	files := globList(trimPath(p.Config.Source))
 	if len(files.Source) == 0 {
 		return errorNoSource
@@ -277,6 +277,16 @@ func (p *Plugin) Exec() error {
 
 	// run archive command
 	fmt.Println("tar all files into " + tar)
+	if p.Config.Debug {
+		checkCmd := exec.Command("sh", "-c", fmt.Sprintf("%s --version|grep %s", p.Config.TarExec, p.Config.TarExec))
+		output, err := checkCmd.CombinedOutput()
+		if err != nil {
+			fmt.Println("Error:", err)
+			return err
+		}
+		fmt.Println(string(output))
+	}
+
 	args := buildArgs(tar, files)
 	cmd := exec.Command(p.Config.TarExec, args...)
 	if p.Config.Debug {
