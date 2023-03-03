@@ -1,5 +1,42 @@
 # drone-scp
 
+排除路径的写法
+
+```yaml
+kind: pipeline
+type: docker
+name: default
+
+steps:
+  - name: deploy
+    image: daniel0ting/drone-scp
+    settings:
+      host:
+        from_secret: server_host
+      username:
+        from_secret: server_user
+      password:
+        from_secret: server_password
+      port: 22
+      target:
+        from_secret: deploy_path
+      debug: true
+      source:
+        - ?.dic
+        - ?.git*
+        - ?.drone.*
+        - ?*.md
+        - ?.editorconfig
+        - ?.env.*
+        - ?*.log
+        - ?*.js.map
+        - ?api/vendor
+        - ?api/tests
+        - .
+```
+
+# 原始文档
+
 [![GoDoc](https://godoc.org/github.com/appleboy/drone-scp?status.svg)](https://godoc.org/github.com/appleboy/drone-scp)
 [![Lint and Testing](https://github.com/appleboy/drone-scp/actions/workflows/lint.yml/badge.svg)](https://github.com/appleboy/drone-scp/actions/workflows/lint.yml)
 [![codecov](https://codecov.io/gh/appleboy/drone-scp/branch/master/graph/badge.svg)](https://codecov.io/gh/appleboy/drone-scp)
@@ -54,7 +91,8 @@ Copy files and artifacts via SSH using a binary, docker or [Drone CI](http://doc
 
 ## Build or Download a binary
 
-The pre-compiled binaries can be downloaded from [release page](https://github.com/appleboy/drone-scp/releases). Support the following OS type.
+The pre-compiled binaries can be downloaded from [release page](https://github.com/appleboy/drone-scp/releases). Support
+the following OS type.
 
 * Windows amd64/386
 * Linux arm/amd64/386
